@@ -1,0 +1,8 @@
+# 构建产物
+build/
+
+# CubeMX 临时文件
+mx.scratch
+
+# 本机开发环境（因人而异）
+.vscode/
