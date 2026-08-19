@@ -257,11 +257,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-        /* ---- 按键切换模式（0=SPIN自转 → 1=DETENT步进 → 2=DAMPING阻尼 → 0）---- */
+        /* ---- 按键切换模式（0=SPIN自转 → 1=DETENT步进 → 2=SPRING回中 → 0）---- */
         if (button_get_flag())
         {
             button_clear_flag();
             g_mode = (g_mode + 1) % 3;
+
+            /* 切到 SPRING 时，把当前位置记为回中零点（转到哪松手弹回哪） */
+            if (g_mode == 2)
+                force_feedback_set_zero(g_angle);
+
             printf(">> BTN pressed, mode=%d\r\n", g_mode);   /* 调试：确认按键触发 */
         }
 

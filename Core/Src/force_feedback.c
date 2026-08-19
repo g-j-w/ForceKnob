@@ -22,16 +22,25 @@
 #define K_DETENT_P     14.0f                            /* 段落比例刚度 [V/rad]（越大越难拧） */
 #define DEAD_ZONE      (2.0f * _PI / 180.0f)            /* 档位中心死区 ±2°（关键！防振荡） */
 #define B_DETENT       0.05f                            /* 段落基础阻尼 [V/(rad/s)] */
-#define B_DETENT_CENTER 0.15f                           /* 靠近档位中心额外阻尼（压残余振荡） */
-#define B_DAMPING      0.50f                            /* 阻尼模式系数 [V/(rad/s)]（越大越黏，还能盖过电机齿槽感） */
+#define B_DETENT_CENTER 0.25f                           /* 靠近档位中心额外阻尼（压残余振荡） */
+#define K_SPRING       3.0f                             /* 回中弹簧刚度 [V/rad]（越大回中越快/越硬） */
+#define B_SPRING       0.15f                            /* 回中弹簧阻尼 [V/(rad/s)] */
 #define VQ_LIMIT       3.5f                             /* Vq 限幅（安全上限！2804 相阻 2.3Ω≈1.5A 峰值） */
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
-static const char* mode_names[3] = {"SPIN", "DETENT", "DAMPING"};
+static const char* mode_names[3] = {"SPIN", "DETENT", "SPRING"};
+static float spring_zero = 0.0f;                        /* SPRING 模式的回中零点 [rad] */
 
 /* 初始化 */
 void force_feedback_init(void)
 {
+    spring_zero = 0.0f;
+}
+
+/* 设置回中零点（切到 SPRING 模式时，把当前角度记为回中位置） */
+void force_feedback_set_zero(float angle)
+{
+    spring_zero = angle;
 }
 
 /* ---------------------------------------------------------------
@@ -65,10 +74,10 @@ float force_feedback_compute(float angle, float velocity, int mode)
         }
         break;
 
-        case 2: /* ---- DAMPING 纯阻尼 ----
-                 * Vq = -B·ω：速度越快阻力越大，静止时无力。
-                 * 速度已被 encoder.c 重滤波，阻力顺滑无毛刺。 */
-            vq = -B_DAMPING * velocity;
+        case 2: /* ---- SPRING 回中弹簧 ----
+                 * Vq = -K·(θ-θ₀) - B·ω：偏离回中零点越远拉力越大，
+                 * 松手自动弹回零点。线性弹簧 + 阻尼，稳定不振荡。 */
+            vq = -K_SPRING * (angle - spring_zero) - B_SPRING * velocity;
             break;
 
         default:
