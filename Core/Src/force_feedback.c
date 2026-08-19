@@ -23,17 +23,15 @@
 #define DEAD_ZONE      (2.0f * _PI / 180.0f)            /* 档位中心死区 ±2°（关键！防振荡） */
 #define B_DETENT       0.05f                            /* 段落基础阻尼 [V/(rad/s)] */
 #define B_DETENT_CENTER 0.25f                           /* 靠近档位中心额外阻尼（压残余振荡） */
-/* 回中 SPRING —— 照搬 smartKnob motor_task.cpp「自动回中」+ mad2804.h 参数
- *  - SPRING_P = endstop_strength(0.6) × 4 = 2.4  （smartKnob 自动回中比例增益）
- *  - SPRING_D = 0.148                            （mad2804.h FOC_PID_D，阻尼）
- *  - 死区 1° = smartKnob DEAD_ZONE_RAD           （中心内不出力，稳定） */
-#define SPRING_P       2.4f                            /* 回中比例增益 [V/rad]（照搬 smartKnob） */
-#define SPRING_D       0.148f                          /* 回中阻尼 [V/(rad/s)]（照搬 mad2804.h） */
-#define SPRING_DEAD_ZONE (1.0f * _PI / 180.0f)        /* 回中死区 ±1°（照搬 smartKnob） */
-#define VQ_LIMIT       4.5f                            /* Vq 限幅：留足力翻过电机齿槽（smartKnob 低齿槽电机用 3V，我们可能需更高） */
+/* 边界 ENDSTOP —— 最简单鲁棒的反馈：转到 ±END_MAX_ANGLE 硬停被推回。
+ * 中间完全自由（只留轻阻尼），只有边界才出力，不容易受齿槽/振荡影响。 */
+#define END_MAX_ANGLE  (_PI)                            /* 边界 ±180°（转半圈到顶） */
+#define K_END         12.0f                             /* 边界推力 [V/rad]（挡得死） */
+#define B_END         0.10f                             /* 阻尼 [V/(rad/s)] */
+#define VQ_LIMIT       4.5f                             /* Vq 限幅（安全上限，满力会发热） */
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
-static const char* mode_names[3] = {"SPIN", "DETENT", "SPRING"};
+static const char* mode_names[3] = {"SPIN", "DETENT", "ENDSTOP"};
 
 /* 初始化 */
 void force_feedback_init(void)
@@ -71,14 +69,16 @@ float force_feedback_compute(float angle, float velocity, int mode)
         }
         break;
 
-        case 2: /* ---- SPRING 回中弹簧（照搬 smartKnob）----
-                 * 固定回中到 0°（上电对齐位置）。
-                 * input = -(距中心角度) + 死区；vq = P·input - D·速度
-                 * 死区内输入为 0（中心平坦），死区外线性弹簧。 */
+        case 2: /* ---- ENDSTOP 边界挡块 ----
+                 * 转到 ±END_MAX_ANGLE 被硬挡（强推回），中间自由。
+                 * 只有边界才出力，不受段落振荡/齿槽影响。 */
         {
-            float dead_zone_adjustment = clamp(angle, -SPRING_DEAD_ZONE, SPRING_DEAD_ZONE);
-            float input = -(angle - dead_zone_adjustment);
-            vq = SPRING_P * input - SPRING_D * velocity;
+            if (angle < -END_MAX_ANGLE)
+                vq =  K_END * (-END_MAX_ANGLE - angle) - B_END * velocity;
+            else if (angle > END_MAX_ANGLE)
+                vq = -K_END * (angle - END_MAX_ANGLE) - B_END * velocity;
+            else
+                vq = -B_END * velocity;   /* 中间：轻阻尼 */
         }
         break;
 
