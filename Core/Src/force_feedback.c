@@ -23,9 +23,14 @@
 #define DEAD_ZONE      (2.0f * _PI / 180.0f)            /* 档位中心死区 ±2°（关键！防振荡） */
 #define B_DETENT       0.05f                            /* 段落基础阻尼 [V/(rad/s)] */
 #define B_DETENT_CENTER 0.25f                           /* 靠近档位中心额外阻尼（压残余振荡） */
-#define K_SPRING       20.0f                            /* 回中弹簧刚度 [V/rad]（加大到能拽过电机齿槽感） */
-#define B_SPRING       0.20f                            /* 回中弹簧阻尼 [V/(rad/s)] */
-#define VQ_LIMIT       3.5f                             /* Vq 限幅（安全上限！2804 相阻 2.3Ω≈1.5A 峰值） */
+/* 回中 SPRING —— 照搬 smartKnob motor_task.cpp「自动回中」+ mad2804.h 参数
+ *  - SPRING_P = endstop_strength(0.6) × 4 = 2.4  （smartKnob 自动回中比例增益）
+ *  - SPRING_D = 0.148                            （mad2804.h FOC_PID_D，阻尼）
+ *  - 死区 1° = smartKnob DEAD_ZONE_RAD           （中心内不出力，稳定） */
+#define SPRING_P       2.4f                            /* 回中比例增益 [V/rad]（照搬 smartKnob） */
+#define SPRING_D       0.148f                          /* 回中阻尼 [V/(rad/s)]（照搬 mad2804.h） */
+#define SPRING_DEAD_ZONE (1.0f * _PI / 180.0f)        /* 回中死区 ±1°（照搬 smartKnob） */
+#define VQ_LIMIT       4.5f                            /* Vq 限幅：留足力翻过电机齿槽（smartKnob 低齿槽电机用 3V，我们可能需更高） */
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
 static const char* mode_names[3] = {"SPIN", "DETENT", "SPRING"};
@@ -66,13 +71,16 @@ float force_feedback_compute(float angle, float velocity, int mode)
         }
         break;
 
-        case 2: /* ---- SPRING 回中弹簧 ----
-                 * 固定回中到 0°（上电对齐的位置）。
-                 * Vq = -K·θ - B·ω：偏离中心越远拉力越大，松手自动弹回 0°。
-                 * （依据 SimpleFOC 社区：回中 = 扭矩层 PD 控制器，
-                 *   目标点设为固定中心才有回复力；设成当前位置则无效果） */
-            vq = -K_SPRING * angle - B_SPRING * velocity;
-            break;
+        case 2: /* ---- SPRING 回中弹簧（照搬 smartKnob）----
+                 * 固定回中到 0°（上电对齐位置）。
+                 * input = -(距中心角度) + 死区；vq = P·input - D·速度
+                 * 死区内输入为 0（中心平坦），死区外线性弹簧。 */
+        {
+            float dead_zone_adjustment = clamp(angle, -SPRING_DEAD_ZONE, SPRING_DEAD_ZONE);
+            float input = -(angle - dead_zone_adjustment);
+            vq = SPRING_P * input - SPRING_D * velocity;
+        }
+        break;
 
         default:
             vq = 0.0f;
