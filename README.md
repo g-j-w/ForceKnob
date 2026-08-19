@@ -6,9 +6,9 @@
 ![Driver](https://img.shields.io/badge/Driver-SimpleFOC%20Mini%20(MS8313)-red)
 ![Mode](https://img.shields.io/badge/Mode-FOC%20Voltage-purple)
 
-一个基于 **STM32H743IIT6** 的力反馈旋钮（Force Feedback Knob）项目。采用**电压模式 FOC**（无电流采样），三档模式：**自转 / 步进（段落感）/ 阻尼**，外接按键循环切换。
+一个基于 **STM32H743IIT6** 的力反馈旋钮（Force Feedback Knob）项目。采用**电压模式 FOC**（无电流采样），三档模式：**自转 / 步进 / 边界挡块**，外接按键循环切换。
 
-A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no current sensing). Three switchable modes: **Spin / Detent / Damping**, cycled by an external button.
+A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no current sensing). Three switchable modes: **Spin / Detent / Endstop**, cycled by an external button.
 
 ---
 
@@ -43,11 +43,11 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 - **原理**：借鉴 smartKnob——**比例弹簧 + 死区**：距最近档位的角度线性出力，档位中心 ±2° 死区内不出力（防振荡），靠近中心时阻尼加强（压残余振动）。
 - **像什么**：音量旋钮、洗衣机/示波器的多档旋钮。
 
-### 3️⃣ SPRING 回中弹簧
+### 3️⃣ ENDSTOP 边界挡块
 
-- **现象**：进入该模式时，旋钮当前位置被记为"回中零点"。转到**任何位置松手都会自动弹回零点**，离零点越远拉力越大；慢慢松开会平滑回中。
-- **原理**：力矩 = `-K_SPRING · (θ - θ₀) - B_SPRING · ω`，线性弹簧 + 阻尼防振荡。
-- **像什么**：相机云台自动回正、赛车游戏方向盘回中。
+- **现象**：旋钮在中间**自由转动**，转到左右 **±180°** 极限被**硬挡**（推回），像限位旋钮。
+- **原理**：只有超过边界时才输出强推力 `K_END · (超出角度)`，中间只留轻阻尼。结构最简单、最不易受电机齿槽/振荡影响。
+- **像什么**：限位旋钮、档位开关的末端挡块。
 
 > 各模式力矩都被 `VQ_LIMIT` 限幅（安全保护）。
 
@@ -100,8 +100,8 @@ ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 
 ```
 1kHz 控制环（TIM2 中断，每 1ms）：
-  读 AS5600 角度 → 算速度（EMA 滤波）
-  → 按模式算目标力矩 → 力矩 × 增益 = Vq 电压
+  读 AS5600 角度 → 算速度（EMA 滤波，α=0.1）
+  → 按模式算 Vq 电压
   → 反 Park / 反 Clarke / 中心对齐 → 三相占空比 → TIM8 CCR
   模式 0（SPIN 自转）不读编码器，直接用旋转的电气角开路旋转
 ```
@@ -126,17 +126,18 @@ ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 所有参数集中在 `Core/Src/force_feedback.c` 顶部，**一次只调一个**：
 
 ```c
-#define NUM_DETENTS    12        /* 段落数：一圈几档 */
-#define K_DETENT_P     14.0f     /* 段落比例刚度 [V/rad]：越大越难拧 */
-#define DEAD_ZONE      (2°)      /* 档位中心死区：防振荡的关键，别改成 0 */
-#define B_DETENT_CENTER 0.25f    /* 档位中心额外阻尼：压残余振动 */
-#define K_SPRING       3.0f      /* 回中弹簧刚度 [V/rad]：越大回中越快 */
-#define B_SPRING       0.15f     /* 回中弹簧阻尼 */
-#define VQ_LIMIT       3.5f      /* 限幅（安全上限） */
+#define NUM_DETENTS      12       /* 段落数：一圈几档 */
+#define K_DETENT_P       14.0f    /* 段落比例刚度 [V/rad]：越大越难拧 */
+#define DEAD_ZONE        (2°)     /* 档位中心死区：防振荡的关键，别改成 0 */
+#define B_DETENT_CENTER  0.25f    /* 档位中心额外阻尼：压残余振动 */
+#define END_MAX_ANGLE    (_PI)    /* 边界挡块 ±180° */
+#define K_END            12.0f    /* 边界推力 [V/rad] */
+#define B_END            0.10f    /* 边界阻尼 */
+#define VQ_LIMIT         4.5f     /* 限幅（安全上限，满力会发热） */
 ```
 
-> ⚠️ `VQ_LIMIT` 是出力上限（2804 相阻 2.3Ω，3.5V ≈ 1.5A 峰值）。
-> 段落实现借鉴 smartKnob：比例弹簧 + 死区（而非 sin 力），稳定性靠死区 + 比例项，速度用重滤波（encoder.c α=0.02）。
+> ⚠️ `VQ_LIMIT` 是出力上限（2804 相阻 2.3Ω，4.5V ≈ 2A 峰值，长时间满力顶着会发热）。
+> 段落实现借鉴 smartKnob：比例弹簧 + 死区（而非 sin 力），稳定性靠死区 + 比例项；速度滤波 α=0.1（encoder.c）。
 
 ---
 
