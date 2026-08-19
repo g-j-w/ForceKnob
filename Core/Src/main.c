@@ -269,8 +269,9 @@ int main(void)
         if (HAL_GetTick() - debug_tick >= 100)
         {
             debug_tick = HAL_GetTick();
-            printf("M:%d A:%.3f V:%.3f Vq:%.3f\r\n",
-                   g_mode, g_angle, g_velocity, g_vq);
+            printf("M:%d(%s) A:%.3f V:%.3f Vq:%.3f\r\n",
+                   g_mode, force_feedback_get_mode_name(g_mode),
+                   g_angle, g_velocity, g_vq);
         }
     /* USER CODE END 3 */
   }

@@ -23,8 +23,8 @@
 #define DEAD_ZONE      (2.0f * _PI / 180.0f)            /* 档位中心死区 ±2°（关键！防振荡） */
 #define B_DETENT       0.05f                            /* 段落基础阻尼 [V/(rad/s)] */
 #define B_DETENT_CENTER 0.25f                           /* 靠近档位中心额外阻尼（压残余振荡） */
-#define K_SPRING       6.0f                             /* 回中弹簧刚度 [V/rad]（越大回中越快/越硬） */
-#define B_SPRING       0.15f                            /* 回中弹簧阻尼 [V/(rad/s)] */
+#define K_SPRING       20.0f                            /* 回中弹簧刚度 [V/rad]（加大到能拽过电机齿槽感） */
+#define B_SPRING       0.20f                            /* 回中弹簧阻尼 [V/(rad/s)] */
 #define VQ_LIMIT       3.5f                             /* Vq 限幅（安全上限！2804 相阻 2.3Ω≈1.5A 峰值） */
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
