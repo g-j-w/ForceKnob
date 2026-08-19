@@ -19,10 +19,11 @@
 /* ============ 手感参数 ============ */
 #define NUM_DETENTS    12                               /* 段落数：一圈 12 段 */
 #define DETENT_STEP    (_2PI / NUM_DETENTS)             /* 每档角度 [rad] */
-#define K_DETENT_P     8.0f                             /* 段落比例刚度 [V/rad]（越大越难拧） */
-#define DEAD_ZONE      (1.0f * _PI / 180.0f)            /* 档位中心死区 ±1°（关键！防振荡） */
-#define B_DETENT       0.05f                            /* 段落阻尼 [V/(rad/s)] */
-#define B_DAMPING      0.30f                            /* 阻尼模式系数 [V/(rad/s)]（越大越黏） */
+#define K_DETENT_P     14.0f                            /* 段落比例刚度 [V/rad]（越大越难拧） */
+#define DEAD_ZONE      (2.0f * _PI / 180.0f)            /* 档位中心死区 ±2°（关键！防振荡） */
+#define B_DETENT       0.05f                            /* 段落基础阻尼 [V/(rad/s)] */
+#define B_DETENT_CENTER 0.15f                           /* 靠近档位中心额外阻尼（压残余振荡） */
+#define B_DAMPING      0.50f                            /* 阻尼模式系数 [V/(rad/s)]（越大越黏，还能盖过电机齿槽感） */
 #define VQ_LIMIT       3.5f                             /* Vq 限幅（安全上限！2804 相阻 2.3Ω≈1.5A 峰值） */
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
@@ -49,12 +50,18 @@ float force_feedback_compute(float angle, float velocity, int mode)
         case 1: /* ---- DETENT 步进：比例弹簧 + 死区 ----
                  * 1. a2d = 距最近档位的角度（±step/2）
                  * 2. 死区：|a2d| < DEAD_ZONE 内输入为 0 → 档位上不较劲、不振荡
-                 * 3. 线性弹簧 Vq = Kp·input，越过档位中点时 a2d 跳变 → "咔哒" */
+                 * 3. 线性弹簧 Vq = Kp·input，越过档位中点时 a2d 跳变 → "咔哒"
+                 * 4. 靠近档位中心时阻尼加强（espp bldc_haptics 的
+                 *    derivative 增益渐变思路），专门压住中心残余振荡 */
         {
             float a2d = angle - roundf(angle / DETENT_STEP) * DETENT_STEP;
             float dz  = clamp(a2d, -DEAD_ZONE, DEAD_ZONE);   /* 死区内的角度 */
             float input = -(a2d - dz);                        /* 中心平坦，两边线性 */
-            vq = K_DETENT_P * input - B_DETENT * velocity;
+
+            float proximity = 1.0f - fabsf(a2d) / (DETENT_STEP * 0.5f);  /* 1=中心 0=边缘 */
+            float b_eff = B_DETENT + B_DETENT_CENTER * clamp(proximity, 0.0f, 1.0f);
+
+            vq = K_DETENT_P * input - b_eff * velocity;
         }
         break;
 
