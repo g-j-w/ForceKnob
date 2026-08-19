@@ -29,18 +29,10 @@
 #define VEL_CUTOFF     60.0f                            /* 速度超过此值不出力，防失控 */
 
 static const char* mode_names[3] = {"SPIN", "DETENT", "SPRING"};
-static float spring_zero = 0.0f;                        /* SPRING 模式的回中零点 [rad] */
 
 /* 初始化 */
 void force_feedback_init(void)
 {
-    spring_zero = 0.0f;
-}
-
-/* 设置回中零点（切到 SPRING 模式时，把当前角度记为回中位置） */
-void force_feedback_set_zero(float angle)
-{
-    spring_zero = angle;
 }
 
 /* ---------------------------------------------------------------
@@ -75,9 +67,11 @@ float force_feedback_compute(float angle, float velocity, int mode)
         break;
 
         case 2: /* ---- SPRING 回中弹簧 ----
-                 * Vq = -K·(θ-θ₀) - B·ω：偏离回中零点越远拉力越大，
-                 * 松手自动弹回零点。线性弹簧 + 阻尼，稳定不振荡。 */
-            vq = -K_SPRING * (angle - spring_zero) - B_SPRING * velocity;
+                 * 固定回中到 0°（上电对齐的位置）。
+                 * Vq = -K·θ - B·ω：偏离中心越远拉力越大，松手自动弹回 0°。
+                 * （依据 SimpleFOC 社区：回中 = 扭矩层 PD 控制器，
+                 *   目标点设为固定中心才有回复力；设成当前位置则无效果） */
+            vq = -K_SPRING * angle - B_SPRING * velocity;
             break;
 
         default:
