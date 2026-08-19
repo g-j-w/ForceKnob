@@ -67,8 +67,9 @@ void encoder_init(void)
  *
  * 速度：
  *   直接用 (本次角-上次角)/1ms 差分 → 会把 ±1 LSB 量化噪声放大成尖峰。
- *   EMA 平滑系数取 0.5：响应快，让阻尼能及时压住段落振荡。
- *   ⚠️ 别把 α 调太小（平滑太狠会引入滞后 → 段落更会震）
+ *   EMA 重滤波 α=0.02（≈ smartKnob LPF Tf=0.05）：速度平滑，
+ *   阻尼不注入噪声。段落稳定性靠 force_feedback.c 的比例弹簧+死区，
+ *   不靠速度响应快慢，所以重滤波是安全的。
  * --------------------------------------------------------------- */
 void encoder_update(void)
 {
@@ -93,7 +94,9 @@ void encoder_update(void)
     float new_total   = (float)multi_turn * _2PI + single_turn;  /* 多圈角 [rad] */
 
     float raw_vel = (new_total - total_angle) / DT;   /* 原始速度 [rad/s] */
-    velocity = 0.5f * velocity + 0.5f * raw_vel;      /* EMA：响应快，阻尼能立刻压住段落振荡（平滑太狠会滞后→更震） */
+    /* EMA 重滤波：α=0.02 ≈ 时间常数 50ms（同 smartKnob LPF Tf=0.05）
+     * 消除 12 位编码器 1kHz 采样的量化毛刺，阻尼平滑不注入噪声 */
+    velocity = 0.98f * velocity + 0.02f * raw_vel;
 
     total_angle = new_total;
 }

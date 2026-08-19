@@ -126,15 +126,16 @@ ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 所有参数集中在 `Core/Src/force_feedback.c` 顶部，**一次只调一个**：
 
 ```c
-#define NUM_DETENTS  12     /* 段落数：一圈几档 */
-#define K_DETENT     0.5f   /* 段落硬度：越大越难拧过去 */
-#define B_DAMPING    0.20f  /* 阻尼：越大越粘 */
-#define TORQUE_GAIN  6.0f   /* 整体力度放大 */
-#define VQ_LIMIT     3.5f   /* 限幅（安全上限） */
+#define NUM_DETENTS  12          /* 段落数：一圈几档 */
+#define K_DETENT_P   8.0f        /* 段落比例刚度 [V/rad]：越大越难拧 */
+#define DEAD_ZONE    (1°)        /* 档位中心死区：防振荡的关键，别改成 0 */
+#define B_DETENT     0.05f       /* 段落阻尼 */
+#define B_DAMPING    0.30f       /* 阻尼模式系数：越大越黏 */
+#define VQ_LIMIT     3.5f        /* 限幅（安全上限） */
 ```
 
-> ⚠️ `VQ_LIMIT` 才是真正的出力上限（2804 相阻 2.3Ω，3.5V ≈ 1.5A 峰值）。
-> K 和 TORQUE_GAIN 再大也会被它卡住，改不动时先看这里。
+> ⚠️ `VQ_LIMIT` 是出力上限（2804 相阻 2.3Ω，3.5V ≈ 1.5A 峰值）。
+> 段落实现借鉴 smartKnob：比例弹簧 + 死区（而非 sin 力），稳定性靠死区 + 比例项，速度用重滤波（encoder.c α=0.02）。
 
 ---
 
