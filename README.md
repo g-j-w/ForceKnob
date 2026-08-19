@@ -12,6 +12,12 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 
 ---
 
+## 🎬 演示视频 Demo
+
+<video src="media/demo.mp4" controls></video>
+
+---
+
 ## ✨ 功能 Features
 
 - ⚡ 电压模式 FOC（反 Park → 反 Clarke → 中心对齐 → 20kHz PWM）
