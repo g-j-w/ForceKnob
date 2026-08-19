@@ -40,17 +40,18 @@ void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();   /* PA0 外接按键 */
+  __HAL_RCC_GPIOB_CLK_ENABLE();   /* PB0 EN、PB8/9 I2C */
+  __HAL_RCC_GPIOC_CLK_ENABLE();   /* PC6/7/8 TIM8 PWM */
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(EN_DRIVER_GPIO_Port, EN_DRIVER_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : KEY_BUTTON_Pin */
-  GPIO_InitStruct.Pin = KEY_BUTTON_Pin;
+  /*Configure GPIO pin : BUTTON_MODE_Pin（PA0 外接按键，按下接 GND，内部上拉） */
+  GPIO_InitStruct.Pin = BUTTON_MODE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(KEY_BUTTON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(BUTTON_MODE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : EN_DRIVER_Pin */
   GPIO_InitStruct.Pin = EN_DRIVER_Pin;
@@ -59,9 +60,9 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(EN_DRIVER_GPIO_Port, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  /* EXTI interrupt init（PA0 → EXTI0）*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 

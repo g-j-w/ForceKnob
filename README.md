@@ -6,19 +6,19 @@
 ![Driver](https://img.shields.io/badge/Driver-SimpleFOC%20Mini%20(MS8313)-red)
 ![Mode](https://img.shields.io/badge/Mode-FOC%20Voltage-purple)
 
-一个基于 **STM32H743IIT6** 的力反馈旋钮（Force Feedback Knob）项目。采用**电压模式 FOC**（无电流采样），通过电机主动出力给旋钮提供三种可切换的"手感"：**段落感 / 阻尼 / 弹簧**。
+一个基于 **STM32H743IIT6** 的力反馈旋钮（Force Feedback Knob）项目。采用**电压模式 FOC**（无电流采样），三档模式：**自转 / 步进（段落感）/ 阻尼**，外接按键循环切换。
 
-A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no current sensing). The motor actively produces torque to give the knob three switchable haptic feels: **Detent / Damping / Spring**.
+A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no current sensing). Three switchable modes: **Spin / Detent / Damping**, cycled by an external button.
 
 ---
 
 ## ✨ 功能 Features
 
 - ⚡ 电压模式 FOC（反 Park → 反 Clarke → 中心对齐 → 20kHz PWM）
-- 🎛️ **三种手感模式**，按板上 K1 按键循环切换：
-  1. **DETENT 段落感**
-  2. **DAMPING 阻尼**
-  3. **SPRING 弹簧**
+- 🎛️ **三档模式**，按外接按键（PA0）循环切换：
+  1. **SPIN 自转**（开路旋转）
+  2. **DETENT 步进**（一圈 12 格咔哒）
+  3. **DAMPING 阻尼**（越转越黏）
 - 📡 AS5600 磁编码器（I2C1），多圈角度跟踪 + 速度 EMA 滤波
 - 📤 串口实时调试输出（USART1，115200-8-N-1）
 - 🔔 上电自动对齐（编码器零点校准，上电"咔"一声属正常）
@@ -26,30 +26,30 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 
 ---
 
-## 🎛️ 三种手感模式详解 Modes
+## 🎛️ 三档模式详解 Modes
 
-> 默认进入 **DETENT** 模式。按板上 **K1（PC13）** 按键循环切换：`段落 → 阻尼 → 弹簧 → 段落…`
-> 切到弹簧模式的那一刻，旋钮当前位置会被记为"回中零点"。
+> 默认进入 **SPIN 自转** 模式。按外接按键（**PA0**）循环切换：`自转 → 步进 → 阻尼 → 自转…`
+> 切换顺序固定为 0→1→2→0，串口 `M:` 值实时显示当前档位。
 
-### 1️⃣ DETENT 段落感（默认）
+### 1️⃣ SPIN 自转（默认）
+
+- **现象**：电机**自动连续旋转**（约 0.5 圈/秒），不依赖旋钮位置。
+- **原理**：开路旋转——让磁场匀速旋转（`spin_theta` 每 1ms 增加固定角度），电机跟随磁场转动。
+- **用途**：演示驱动链路、确认电机/驱动/电源正常。
+
+### 2️⃣ DETENT 步进（段落感）
 
 - **现象**：旋钮被"锁"在一圈 **12 个固定档位**上。转动时一格一格地"咔哒"，每过一档都能明显感到一个阻力峰；松手会**自动停在最近的一档**。
 - **原理**：控制环施加的力矩 = `-K_DETENT · sin(12·θ) - B_DAMPING · ω`。正弦势阱在 12 个位置形成稳定点，转子被吸向最近的稳定点。
 - **像什么**：音量旋钮、洗衣机/示波器的多档旋钮。
 
-### 2️⃣ DAMPING 阻尼
+### 3️⃣ DAMPING 阻尼
 
 - **现象**：旋钮可以在**任意角度自由转动**，但转动时始终有**持续的粘滞阻力**——速度越快阻力越大，慢转则轻。松手会**停在任意位置**（不回弹、没有档位）。
 - **原理**：力矩 = `-B_DAMPING · ω`，纯速度比例阻尼，像在油里转。
 - **像什么**：在浓稠液体里搅拌，或汽车方向盘助力变重的手感。
 
-### 3️⃣ SPRING 弹簧
-
-- **现象**：进入该模式的位置记为"零点"。旋钮转到**任何位置松手都会自动弹回零点**，离零点越远拉力越大；慢慢松开会平滑回中。
-- **原理**：力矩 = `-K_SPRING · (θ - θ₀) - B_DAMPING · ω`，线性弹簧 + 阻尼防振荡。
-- **像什么**：相机云台自动回正、赛车游戏方向盘回中。
-
-> 三种模式的力矩最后都经过 `TORQUE_GAIN` 放大、并被 `VQ_LIMIT` 限幅（安全保护）。
+> 步进/阻尼模式的力矩最后都经过 `TORQUE_GAIN` 放大、并被 `VQ_LIMIT` 限幅（安全保护）。
 
 ---
 
@@ -74,7 +74,7 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 | 使能 EN | PB0 | 拉高才使能驱动 |
 | 编码器 I2C1 | PB8(SCL) / PB9(SDA) | → AS5600（各加 4.7kΩ 上拉） |
 | 串口 USART1 | PB14(TX) / PB15(RX) | → CH340 |
-| 按键 | PC13 | 板上 User Key K1（切模式） |
+| 按键(外接) | PA0 | 面包板按键，按下接 GND（切模式） |
 
 > 注：V3 核心板排针未引出 PB6 / PF0 / PF1，故编码器用 PB8/PB9。
 
@@ -89,6 +89,7 @@ Mini M1/M2/M3 → 电机 U/V/W（方向反就交换任意两根相线）
 
 PB8 → AS5600 SCL    PB9 → AS5600 SDA   （4.7kΩ 上拉到 3.3V）
 PB14 → CH340 RXD    PB15 → CH340 TXD   （115200-8-N-1）
+PA0 ── 外接按键一脚，按键另一脚 ── GND（切模式）
 
 ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 ```
@@ -100,8 +101,9 @@ ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 ```
 1kHz 控制环（TIM2 中断，每 1ms）：
   读 AS5600 角度 → 算速度（EMA 滤波）
-  → 按当前模式算目标力矩 → 力矩 × 增益 = Vq 电压
+  → 按模式算目标力矩 → 力矩 × 增益 = Vq 电压
   → 反 Park / 反 Clarke / 中心对齐 → 三相占空比 → TIM8 CCR
+  模式 0（SPIN 自转）不读编码器，直接用旋转的电气角开路旋转
 ```
 
 - 无电流采样，是 **SimpleFOC 的 voltage torque mode**，对力反馈旋钮够用
@@ -125,9 +127,8 @@ ST-Link: PA13(TMS)→SWDIO  PA14(TCK)→SWCLK  GND
 
 ```c
 #define NUM_DETENTS  12     /* 段落数：一圈几档 */
-#define K_DETENT     0.8f   /* 段落硬度：越大越难拧过去 */
-#define K_SPRING     0.5f   /* 弹簧刚度：越大回中越快/越硬 */
-#define B_DAMPING    0.08f  /* 阻尼：越大越粘 */
+#define K_DETENT     0.5f   /* 段落硬度：越大越难拧过去 */
+#define B_DAMPING    0.20f  /* 阻尼：越大越粘 */
 #define TORQUE_GAIN  6.0f   /* 整体力度放大 */
 #define VQ_LIMIT     3.5f   /* 限幅（安全上限） */
 ```

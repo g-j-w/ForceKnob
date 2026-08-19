@@ -15,7 +15,7 @@
   *    │ 使能 EN      │ PB0          │ 驱动板 EN，拉高才有力          │
   *    │ 编码器 I2C1  │ PB8(SCL)/PB9(SDA) → AS5600                  │
   *    │ 串口  USART1 │ PB14(TX)/PB15(RX) → CH340                   │
-  *    │ 按键         │ PC13         │ 板上 User Key K1              │
+  *    │ 按键(外接)   │ PA0          │ 面包板按键，按下接 GND          │
   *    └─────────────┴──────────────┴──────────────────────────────┘
   *  注意：本板 HSE 晶振用不了，时钟只用内部 HSI 64MHz → PLL → 240MHz。
   *
@@ -35,7 +35,7 @@
 
 #include "encoder.h"        /* AS5600 编码器（I2C1，PB8/PB9） */
 #include "force_feedback.h" /* 三种手感：段落/阻尼/弹簧 */
-#include "button.h"         /* PC13 按键切模式 */
+#include "button.h"         /* PA0 外接按键切模式 */
 #include "foc_math.h"       /* 反 Park/反 Clarke/中心对齐等数学 */
 #include <stdio.h>          /* printf / snprintf */
 #include <string.h>
@@ -64,7 +64,7 @@
 volatile float g_angle    = 0.0f;  /* 机械角 [rad]，1kHz 中断里更新 */
 volatile float g_velocity = 0.0f;  /* 角速度 [rad/s]（已 EMA 滤波） */
 volatile float g_vq       = 0.0f;  /* 当前输出的 Vq 电压 [V]（显示/调试用） */
-volatile int   g_mode     = 0;     /* 手感模式：0=DETENT 1=DAMPING 2=SPRING */
+volatile int   g_mode     = 0;     /* 模式：0=SPIN自转 1=DETENT步进 2=DAMPING阻尼 */
 
 /* ============ 关键参数 ============ */
 #define VDC_VOLTAGE   12.0f    /* 母线电压 [V]，必须和实际 12V 供电一致 */
@@ -73,6 +73,14 @@ volatile int   g_mode     = 0;     /* 手感模式：0=DETENT 1=DAMPING 2=SPRING
                                 *  （改 TIM8 分频/周期时这里要跟着改） */
 #define ALIGN_VOLTAGE 1.5f     /* 上电对齐电压 [V]，别超过 2V（2804 相阻 2.3Ω） */
 #define ALIGN_TIME_MS 800      /* 对齐保持时间 [ms] */
+
+/* ---- 模式 0 = SPIN 自转 参数 ----
+ * 开路旋转：让磁场匀速旋转，电机跟着转（0.5 圈/秒）。
+ * 用途：演示/测试驱动链路。 */
+#define CONTROL_DT     0.001f                            /* 控制周期 1ms */
+#define SPIN_TEST_VQ   2.5f                              /* 自转电压，别太大 */
+#define SPIN_OMEGA_ELEC (2.0f * _PI * 0.5f * POLE_PAIRS) /* 电场转速 = 0.5转/秒 × 极对数 */
+static float spin_theta = 0.0f;                          /* 电场旋转角 */
 
 /* USER CODE END PV */
 
@@ -108,13 +116,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         g_angle    = encoder_get_angle();     /* 机械角 [rad] */
         g_velocity = encoder_get_velocity();  /* 角速度 [rad/s] */
 
-        /* 2. 力反馈 → 力矩 → Vq（Vd 恒为 0，电压模式 FOC） */
-        g_vq = force_feedback_compute(g_angle, g_velocity, g_mode);
-
-        /* 3. FOC 变换：把转子坐标系里的 Vq 变回三相静止坐标系
-         *    电气角 = 机械角 × 极对数（上电已对齐清零编码器） */
+        /* 2. 算 Vq + 反 Park：
+         *    模式 0 = SPIN 自转：用固定 Vq 让磁场匀速旋转（spin_theta 一直加），
+         *                        电机开路跟着转，不依赖编码器。
+         *    模式 1/2 = DETENT/DAMPING：力反馈算 Vq，电气角 = 机械角×极对数。 */
         float valpha, vbeta;
-        inv_park_transform(0.0f, g_vq, g_angle * POLE_PAIRS, &valpha, &vbeta);
+        if (g_mode == 0)
+        {
+            spin_theta += SPIN_OMEGA_ELEC * CONTROL_DT;
+            g_vq = SPIN_TEST_VQ;
+            inv_park_transform(0.0f, g_vq, spin_theta, &valpha, &vbeta);
+        }
+        else
+        {
+            g_vq = force_feedback_compute(g_angle, g_velocity, g_mode);
+            inv_park_transform(0.0f, g_vq, g_angle * POLE_PAIRS, &valpha, &vbeta);
+        }
 
         float va, vb, vc;
         inv_clarke(valpha, vbeta, &va, &vb, &vc);
@@ -240,17 +257,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-        /* ---- 按键切换手感模式 ---- */
+        /* ---- 按键切换模式（0=SPIN自转 → 1=DETENT步进 → 2=DAMPING阻尼 → 0）---- */
         if (button_get_flag())
         {
             button_clear_flag();
-            g_mode = (g_mode + 1) % 3;      /* 0→1→2→0 循环 */
-
-            /* 切到 SPRING 模式时，把当前位置记为回中零点
-             * （这样"转到哪松手就弹回哪"） */
-            if (g_mode == 2)
-                force_feedback_set_zero(g_angle);
-
+            g_mode = (g_mode + 1) % 3;
             printf(">> BTN pressed, mode=%d\r\n", g_mode);   /* 调试：确认按键触发 */
         }
 
