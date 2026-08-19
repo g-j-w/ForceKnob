@@ -67,8 +67,8 @@ void encoder_init(void)
  *
  * 速度：
  *   直接用 (本次角-上次角)/1ms 差分 → 会把 ±1 LSB 量化噪声放大成尖峰。
- *   所以套一层一阶低通 EMA：v_new = 0.92·v_old + 0.08·v_raw（强平滑，
- *   消除 12 位编码器 1kHz 采样的速度量化毛刺，手感更顺）
+ *   EMA 平滑系数取 0.5：响应快，让阻尼能及时压住段落振荡。
+ *   ⚠️ 别把 α 调太小（平滑太狠会引入滞后 → 段落更会震）
  * --------------------------------------------------------------- */
 void encoder_update(void)
 {
@@ -93,7 +93,7 @@ void encoder_update(void)
     float new_total   = (float)multi_turn * _2PI + single_turn;  /* 多圈角 [rad] */
 
     float raw_vel = (new_total - total_angle) / DT;   /* 原始速度 [rad/s] */
-    velocity = 0.92f * velocity + 0.08f * raw_vel;    /* EMA 低通滤波（加强平滑，消除量化噪声） */
+    velocity = 0.5f * velocity + 0.5f * raw_vel;      /* EMA：响应快，阻尼能立刻压住段落振荡（平滑太狠会滞后→更震） */
 
     total_angle = new_total;
 }

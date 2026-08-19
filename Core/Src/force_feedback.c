@@ -19,7 +19,7 @@
 /* ============ 手感参数（按需调整，一次只动一个） ============
  * ⚠️ 实际出力上限由 VQ_LIMIT 决定：K/TORQUE_GAIN 再大也会被它卡住。 */
 #define NUM_DETENTS  12          /* 段落数：一圈 12 段 */
-#define K_DETENT     0.4f        /* 段落刚度：越大越难拧过去，越小越不容易振 */
+#define K_DETENT     0.25f       /* 段落刚度：调软以消除振荡（大→更硬但容易振） */
 #define B_DAMPING    0.20f       /* 阻尼系数：越大越粘（0.20 可压住段落振荡） */
 #define TORQUE_GAIN  6.0f        /* 力矩 → Vq 电压的整体放大倍数 */
 #define VQ_LIMIT     3.5f        /* Vq 限幅 ±3.5V（安全上限！2804 相阻 2.3Ω，3.5V≈1.5A 峰值） */
