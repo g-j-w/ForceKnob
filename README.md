@@ -56,6 +56,19 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 - **像什么**：限位旋钮、档位开关的末端挡块。
 
 > 各模式力矩都被 `VQ_LIMIT` 限幅（安全保护）。
+>
+> 硬件连接及视频演示
+> 
+> <img width="3072" height="4096" alt="2019ae9b1daad7814846be8cea0f04ba" src="https://github.com/user-attachments/assets/b623f335-d35c-4f88-8efe-16834d324b76" />
+
+
+
+
+
+
+
+
+
 
 ---
 
