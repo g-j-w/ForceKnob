@@ -4,7 +4,7 @@
  * 模式编号（main.c 的 g_mode）：
  *   0 = SPIN   自转（开路旋转，main.c 实现）
  *   1 = DETENT 步进（段落感）
- *   2 = SPRING 回中弹簧
+ *   2 = ENDSTOP 边界挡块
  * ============================================================ */
 #ifndef FORCE_FEEDBACK_H
 #define FORCE_FEEDBACK_H

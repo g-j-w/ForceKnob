@@ -18,7 +18,7 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 - 🎛️ **三档模式**，按外接按键（PA0）循环切换：
   1. **SPIN 自转**（开路旋转）
   2. **DETENT 步进**（一圈 12 格咔哒）
-  3. **SPRING 回中**（松手弹回零点）
+  3. **ENDSTOP 边界**（转到头硬停）
 - 📡 AS5600 磁编码器（I2C1），多圈角度跟踪 + 速度 EMA 滤波
 - 📤 串口实时调试输出（USART1，115200-8-N-1）
 - 🔔 上电自动对齐（编码器零点校准，上电"咔"一声属正常）
@@ -28,7 +28,7 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 
 ## 🎛️ 三档模式详解 Modes
 
-> 默认进入 **SPIN 自转** 模式。按外接按键（**PA0**）循环切换：`自转 → 步进 → 回中 → 自转…`
+> 默认进入 **SPIN 自转** 模式。按外接按键（**PA0**）循环切换：`自转 → 步进 → 边界 → 自转…`
 > 切换顺序固定为 0→1→2→0，串口 `M:` 值实时显示当前档位。
 
 ### 1️⃣ SPIN 自转（默认）

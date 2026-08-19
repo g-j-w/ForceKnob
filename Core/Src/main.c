@@ -64,7 +64,7 @@
 volatile float g_angle    = 0.0f;  /* 机械角 [rad]，1kHz 中断里更新 */
 volatile float g_velocity = 0.0f;  /* 角速度 [rad/s]（已 EMA 滤波） */
 volatile float g_vq       = 0.0f;  /* 当前输出的 Vq 电压 [V]（显示/调试用） */
-volatile int   g_mode     = 0;     /* 模式：0=SPIN自转 1=DETENT步进 2=DAMPING阻尼 */
+volatile int   g_mode     = 0;     /* 模式：0=SPIN自转 1=DETENT步进 2=ENDSTOP边界 */
 
 /* ============ 关键参数 ============ */
 #define VDC_VOLTAGE   12.0f    /* 母线电压 [V]，必须和实际 12V 供电一致 */
@@ -119,7 +119,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* 2. 算 Vq + 反 Park：
          *    模式 0 = SPIN 自转：用固定 Vq 让磁场匀速旋转（spin_theta 一直加），
          *                        电机开路跟着转，不依赖编码器。
-         *    模式 1/2 = DETENT/DAMPING：力反馈算 Vq，电气角 = 机械角×极对数。 */
+         *    模式 1/2 = DETENT/ENDSTOP：力反馈算 Vq，电气角 = 机械角×极对数。 */
         float valpha, vbeta;
         if (g_mode == 0)
         {
@@ -257,7 +257,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-        /* ---- 按键切换模式（0=SPIN自转 → 1=DETENT步进 → 2=SPRING回中 → 0）---- */
+        /* ---- 按键切换模式（0=SPIN自转 → 1=DETENT步进 → 2=ENDSTOP边界 → 0）---- */
         if (button_get_flag())
         {
             button_clear_flag();

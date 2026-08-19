@@ -94,9 +94,10 @@ void encoder_update(void)
     float new_total   = (float)multi_turn * _2PI + single_turn;  /* 多圈角 [rad] */
 
     float raw_vel = (new_total - total_angle) / DT;   /* 原始速度 [rad/s] */
-    /* EMA 重滤波：α=0.02 ≈ 时间常数 50ms（同 smartKnob LPF Tf=0.05）
-     * 消除 12 位编码器 1kHz 采样的量化毛刺，阻尼平滑不注入噪声 */
-    velocity = 0.98f * velocity + 0.02f * raw_vel;
+    /* EMA 滤波：α=0.1 ≈ 时间常数 10ms（匹配 smartKnob LPF）
+     * 既平滑量化毛刺，又不过度滞后（之前 0.02/50ms 太重，
+     * 拖慢所有模式的阻尼响应 → 步进更震） */
+    velocity = 0.9f * velocity + 0.1f * raw_vel;
 
     total_angle = new_total;
 }
