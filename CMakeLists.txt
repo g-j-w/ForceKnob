@@ -47,7 +47,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/button.c
     Core/Src/encoder.c
     Core/Src/force_feedback.c
-    Core/Src/ssd1306.c
     # Add user sources here
 )
 

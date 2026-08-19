@@ -81,7 +81,7 @@ float force_feedback_compute(float angle, float velocity, int mode)
     return clamp(vq, -VQ_LIMIT, VQ_LIMIT);
 }
 
-/* 模式名（OLED/串口显示用） */
+/* 模式名（串口显示用） */
 const char* force_feedback_get_mode_name(int mode)
 {
     if (mode >= 0 && mode < 3) return mode_names[mode];

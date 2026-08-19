@@ -5,7 +5,7 @@
   * @brief          : 力控旋钮（Force Knob）主程序
   *
   *  硬件：极客/WeAct STM32H743IIT6 核心板（V3）+ SimpleFOC Mini 驱动板
-  *         + DFRobot 2804 无刷电机（自带 AS5600，7 对极）+ SSD1306 OLED
+  *         + DFRobot 2804 无刷电机（自带 AS5600，7 对极）
   *
   *  引脚分配（按核心板 V3 原理图排针核对，杜邦线可直接接出）：
   *    ┌─────────────┬──────────────┬──────────────────────────────┐
@@ -14,7 +14,6 @@
   *    │ PWM 三相     │ PC6/PC7/PC8  │ TIM8_CH1/CH2/CH3 → Mini IN1/2/3│
   *    │ 使能 EN      │ PB0          │ 驱动板 EN，拉高才有力          │
   *    │ 编码器 I2C1  │ PB8(SCL)/PB9(SDA) → AS5600                  │
-  *    │ OLED   I2C2  │ PB10(SCL)/PB11(SDA) → SSD1306               │
   *    │ 串口  USART1 │ PB14(TX)/PB15(RX) → CH340                   │
   *    │ 按键         │ PC13         │ 板上 User Key K1              │
   *    └─────────────┴──────────────┴──────────────────────────────┘
@@ -37,7 +36,6 @@
 #include "encoder.h"        /* AS5600 编码器（I2C1，PB8/PB9） */
 #include "force_feedback.h" /* 三种手感：段落/阻尼/弹簧 */
 #include "button.h"         /* PC13 按键切模式 */
-#include "ssd1306.h"        /* OLED 显示（I2C2，PB10/PB11） */
 #include "foc_math.h"       /* 反 Park/反 Clarke/中心对齐等数学 */
 #include <stdio.h>          /* printf / snprintf */
 #include <string.h>
@@ -82,7 +80,6 @@ volatile int   g_mode     = 0;     /* 手感模式：0=DETENT 1=DAMPING 2=SPRING
 void SystemClock_Config(void);
 void MX_GPIO_Init(void);
 void MX_I2C1_Init(void);
-void MX_I2C2_Init(void);
 void MX_TIM2_Init(void);
 void MX_TIM8_Init(void);
 void MX_USART1_UART_Init(void);
@@ -206,7 +203,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_TIM2_Init();
   MX_TIM8_Init();
   MX_USART1_UART_Init();
@@ -214,7 +210,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
     /* ---- 用户外设初始化 ---- */
     encoder_init();         /* 编码器清零 */
-    ssd1306_init();         /* OLED 上电初始化（内部有 100ms 延时） */
     button_init();          /* 按键标志复位 */
     force_feedback_init();  /* 手感参数复位（弹簧零点清零） */
 
@@ -235,7 +230,6 @@ int main(void)
     /* 启动 TIM2 1kHz 控制环中断 */
     HAL_TIM_Base_Start_IT(&htim2);
 
-    uint32_t ui_tick    = 0;   /* OLED 刷新计时 */
     uint32_t debug_tick = 0;   /* 串口打印计时 */
   /* USER CODE END 2 */
 
@@ -256,27 +250,6 @@ int main(void)
              * （这样"转到哪松手就弹回哪"） */
             if (g_mode == 2)
                 force_feedback_set_zero(g_angle);
-        }
-
-        /* ---- OLED 刷新（约 30Hz）----
-         * OLED 在独立的 I2C2 总线上，和编码器的 I2C1 互不干扰。
-         * 100kHz 下整屏刷新约 100ms，显示会稍慢但稳定；
-         * 想更快请在 CubeMX 里把 I2C1/I2C2 时钟改 400kHz 重新生成。 */
-        if (HAL_GetTick() - ui_tick >= 33)
-        {
-            ui_tick = HAL_GetTick();
-
-            ssd1306_clear();
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Mode:%s", force_feedback_get_mode_name(g_mode));
-            ssd1306_draw_string(0, 0, buf);
-            snprintf(buf, sizeof(buf), "Ang:%.2f", g_angle);
-            ssd1306_draw_string(0, 16, buf);
-            snprintf(buf, sizeof(buf), "Vel:%.2f", g_velocity);
-            ssd1306_draw_string(0, 32, buf);
-            snprintf(buf, sizeof(buf), "Vq:%.2f", g_vq);
-            ssd1306_draw_string(0, 48, buf);
-            ssd1306_refresh();
         }
 
         /* ---- 串口调试输出（10Hz）---- */
