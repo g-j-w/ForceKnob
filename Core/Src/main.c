@@ -250,6 +250,8 @@ int main(void)
              * （这样"转到哪松手就弹回哪"） */
             if (g_mode == 2)
                 force_feedback_set_zero(g_angle);
+
+            printf(">> BTN pressed, mode=%d\r\n", g_mode);   /* 调试：确认按键触发 */
         }
 
         /* ---- 串口调试输出（10Hz）---- */
