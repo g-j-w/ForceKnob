@@ -57,7 +57,11 @@ A force feedback knob based on **STM32H743IIT6**, using voltage-mode FOC (no cur
 > 硬件连接及视频演示
 > 
 
-https://github.com/user-attachments/assets/60866ea1-b7ed-4fdd-a1c3-d92b5d0fd1dc
+
+
+https://github.com/user-attachments/assets/a0945535-829a-4e8a-9a2c-d7861933b091
+
+
 
 
 > <img width="3072" height="4096" alt="2019ae9b1daad7814846be8cea0f04ba" src="https://github.com/user-attachments/assets/b623f335-d35c-4f88-8efe-16834d324b76" />
